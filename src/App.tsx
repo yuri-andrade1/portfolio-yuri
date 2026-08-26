@@ -1,0 +1,729 @@
+import { useEffect, useRef, useState } from "react";
+
+// ── Scroll animation hook ──────────────────────────────────────────────
+function useScrollReveal() {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll(".fade-up, .fade-left, .fade-right").forEach((el) => {
+      observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
+}
+
+// ── Stars background ────────────────────────────────────────────────────
+function Stars() {
+  const stars = Array.from({ length: 60 }, (_, i) => ({
+    id: i,
+    top: `${Math.random() * 100}%`,
+    left: `${Math.random() * 100}%`,
+    duration: `${2 + Math.random() * 4}s`,
+    delay: `${Math.random() * 4}s`,
+    size: Math.random() > 0.8 ? 3 : 2,
+  }));
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+      {stars.map((s) => (
+        <div
+          key={s.id}
+          className="star"
+          style={{
+            top: s.top,
+            left: s.left,
+            "--duration": s.duration,
+            "--delay": s.delay,
+            width: s.size,
+            height: s.size,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── 3D tilt card ────────────────────────────────────────────────────────
+function TiltCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    el.style.transform = `perspective(600px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) translateZ(8px)`;
+  };
+
+  const handleMouseLeave = () => {
+    if (ref.current) ref.current.style.transform = "";
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`card-3d pixel-border transition-all duration-300 ${className}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── Skill bar ───────────────────────────────────────────────────────────
+function SkillBar({ label, value, delay = 0 }: { label: string; value: number; delay?: number }) {
+  const [width, setWidth] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => setWidth(value), delay);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [value, delay]);
+
+  return (
+    <div ref={ref} className="mb-4">
+      <div className="flex justify-between mb-1">
+        <span className="font-mono text-xs text-purple-300">{label}</span>
+        <span className="font-mono text-xs text-purple-500">{value}%</span>
+      </div>
+      <div className="pixel-progress">
+        <div className="pixel-progress-fill" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Nav ─────────────────────────────────────────────────────────────────
+function Nav() {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", handler);
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  const links = ["inicio", "sobre", "habilidades", "projetos", "contato"];
+
+  return (
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? "bg-[#0a0010]/90 backdrop-blur-sm border-b border-purple-900/40" : ""
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a
+          href="#inicio"
+          className="font-pixel text-purple-400 text-xs crt-glow-sm hover:text-purple-300 transition-colors"
+        >
+          YL.dev
+        </a>
+
+        {/* desktop */}
+        <ul className="hidden md:flex gap-8">
+          {links.map((l) => (
+            <li key={l}>
+              <a
+                href={`#${l}`}
+                className="font-mono text-sm text-purple-400 hover:text-purple-200 transition-colors uppercase tracking-widest"
+              >
+                {l}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        {/* mobile toggle */}
+        <button
+          className="md:hidden font-pixel text-purple-400 text-xs"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? "[X]" : "[=]"}
+        </button>
+      </div>
+
+      {menuOpen && (
+        <div className="md:hidden bg-[#0a0010]/95 border-t border-purple-900/40 px-6 py-4">
+          {links.map((l) => (
+            <a
+              key={l}
+              href={`#${l}`}
+              onClick={() => setMenuOpen(false)}
+              className="block font-mono text-sm text-purple-400 hover:text-purple-200 py-2 uppercase tracking-widest"
+            >
+              {`> ${l}`}
+            </a>
+          ))}
+        </div>
+      )}
+    </nav>
+  );
+}
+
+// ── Hero ────────────────────────────────────────────────────────────────
+function Hero() {
+  const [typed, setTyped] = useState("");
+  const full = "Analise e Desenvolvimento de Sistemas";
+
+  useEffect(() => {
+    let i = 0;
+    const timer = setInterval(() => {
+      setTyped(full.slice(0, i + 1));
+      i++;
+      if (i >= full.length) clearInterval(timer);
+    }, 55);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <section
+      id="inicio"
+      className="relative min-h-screen flex flex-col items-center justify-center text-center pixel-grid-bg px-6"
+    >
+      {/* decorative corner pixels */}
+      <div className="absolute top-24 left-8 w-4 h-4 bg-purple-700 float-anim" style={{ animationDelay: "0s" }} />
+      <div className="absolute top-40 left-16 w-2 h-2 bg-purple-500" />
+      <div className="absolute top-32 right-12 w-4 h-4 bg-purple-600 float-anim" style={{ animationDelay: "1s" }} />
+      <div className="absolute bottom-32 right-8 w-3 h-3 bg-purple-700 float-anim" style={{ animationDelay: "0.5s" }} />
+      <div className="absolute bottom-48 left-10 w-2 h-2 bg-purple-500" />
+
+      {/* avatar pixel art placeholder */}
+      <div className="relative mb-8 float-anim">
+        <div
+          className="w-32 h-32 md:w-40 md:h-40 mx-auto"
+          style={{
+            background: "linear-gradient(135deg, #1a0030 0%, #2d0060 100%)",
+            border: "4px solid #8b2be2",
+            boxShadow: "8px 8px 0 #5a00b4, 0 0 40px rgba(139, 43, 226, 0.5)",
+            imageRendering: "pixelated",
+          }}
+        >
+          {/* pixel character */}
+          <svg viewBox="0 0 16 16" width="100%" height="100%" style={{ imageRendering: "pixelated" }}>
+            {/* hair */}
+            <rect x="3" y="1" width="10" height="3" fill="#4a0090" />
+            <rect x="2" y="2" width="12" height="2" fill="#5a00b4" />
+            {/* face */}
+            <rect x="3" y="4" width="10" height="6" fill="#d4a0ff" />
+            {/* eyes */}
+            <rect x="5" y="5" width="2" height="2" fill="#1a0030" />
+            <rect x="9" y="5" width="2" height="2" fill="#1a0030" />
+            {/* glasses */}
+            <rect x="4" y="5" width="4" height="3" fill="none" stroke="#8b2be2" strokeWidth="0.5" />
+            <rect x="8" y="5" width="4" height="3" fill="none" stroke="#8b2be2" strokeWidth="0.5" />
+            {/* mouth */}
+            <rect x="6" y="8" width="4" height="1" fill="#8b2be2" />
+            {/* body */}
+            <rect x="4" y="10" width="8" height="5" fill="#3a0070" />
+            <rect x="5" y="11" width="6" height="1" fill="#5a00b4" />
+            {/* arms */}
+            <rect x="2" y="10" width="2" height="4" fill="#2d0060" />
+            <rect x="12" y="10" width="2" height="4" fill="#2d0060" />
+          </svg>
+        </div>
+        {/* level badge */}
+        <div
+          className="absolute -bottom-2 -right-2 bg-purple-700 border-2 border-purple-400 px-2 py-0.5"
+          style={{ boxShadow: "2px 2px 0 #3a006e" }}
+        >
+          <span className="font-pixel text-white" style={{ fontSize: "7px" }}>LV.1</span>
+        </div>
+      </div>
+
+      <p className="font-pixel text-purple-500 text-xs mb-2 tracking-widest crt-glow-sm">
+        PLAYER_01 SELECIONADO
+      </p>
+      <h1 className="font-pixel text-3xl md:text-5xl text-purple-200 mb-4 crt-glow leading-relaxed">
+        YURI
+        <span className="text-purple-400"> ANDRADE</span>
+      </h1>
+
+      <div className="font-mono text-purple-400 text-sm md:text-base mb-2 min-h-[1.5rem]">
+        <span className="text-purple-600">$ </span>
+        <span>{typed}</span>
+        <span className="cursor-blink text-purple-400">█</span>
+      </div>
+
+      <p className="font-mono text-purple-600 text-xs md:text-sm mb-10 max-w-md">
+        // Transformando café em código desde 2022
+      </p>
+
+      <div className="flex gap-4 flex-wrap justify-center">
+        <a href="#projetos" className="neon-btn">
+          VER PROJETOS
+        </a>
+        <a href="#contato" className="neon-btn">
+          CONTATO
+        </a>
+      </div>
+
+      {/* scroll hint */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+        <span className="font-pixel text-purple-700" style={{ fontSize: "7px" }}>SCROLL</span>
+        <div className="w-px h-8 bg-gradient-to-b from-purple-700 to-transparent" />
+      </div>
+    </section>
+  );
+}
+
+// ── About ────────────────────────────────────────────────────────────────
+function About() {
+  return (
+    <section id="sobre" className="relative py-24 px-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-12 fade-up">
+          <h2 className="font-pixel text-2xl md:text-3xl text-purple-300 section-title crt-glow-sm">
+            SOBRE MIM
+          </h2>
+          <div className="w-48 h-px bg-purple-700 mt-3" />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-12 items-start">
+          {/* info card */}
+          <div className="fade-left">
+            <TiltCard className="p-6 bg-[#110020]">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-3 h-3 bg-purple-500" />
+                <span className="font-pixel text-purple-400" style={{ fontSize: "9px" }}>
+                  DADOS DO PERSONAGEM
+                </span>
+              </div>
+              <div className="space-y-3">
+                {[
+                  ["NOME", "Yuri Andrade"],
+                  ["CLASSE", "Dev em Formação"],
+                  ["CURSO", "ADS"],
+                  ["STATUS", "Estudando..."],
+                  ["MISSÃO", "Full Stack Dev"],
+                  ["XP", "Acumulando..."],
+                ].map(([key, val]) => (
+                  <div key={key} className="flex gap-3 font-mono text-sm border-b border-purple-900/40 pb-2">
+                    <span className="text-purple-600 w-20 shrink-0">{key}:</span>
+                    <span className="text-purple-200">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </TiltCard>
+          </div>
+
+          {/* bio */}
+          <div className="fade-right space-y-5">
+            <div
+              className="border-l-4 border-purple-600 pl-4 py-2"
+              style={{ background: "linear-gradient(90deg, rgba(139,43,226,0.08) 0%, transparent 100%)" }}
+            >
+              <p className="font-mono text-purple-300 text-sm leading-relaxed">
+                Olá! Sou um estudante apaixonado por tecnologia e desenvolvimento de software.
+                Atualmente cursando Análise e Desenvolvimento de Sistemas, buscando transformar
+                ideias em soluções reais através do código.
+              </p>
+            </div>
+            <p className="font-mono text-purple-400 text-sm leading-relaxed">
+              Me interesso por desenvolvimento web, criação de aplicações e resolução de problemas
+              complexos. Sempre em busca de aprender novas tecnologias e desafios que me façam evoluir
+              como desenvolvedor.
+            </p>
+            <p className="font-mono text-purple-400 text-sm leading-relaxed">
+              Quando não estou codando, estou explorando games, animes ou contribuindo com projetos
+              pessoais que combinam criatividade e lógica.
+            </p>
+
+            {/* fun stats */}
+            <div className="grid grid-cols-3 gap-3 mt-6">
+              {[
+                ["∞", "Café/dia"],
+                ["100+", "Commits"],
+                ["∞", "Bugs fixados"],
+              ].map(([num, label]) => (
+                <div
+                  key={label}
+                  className="text-center p-3 border border-purple-800 bg-purple-900/20"
+                  style={{ boxShadow: "3px 3px 0 #3a006e" }}
+                >
+                  <div className="font-pixel text-purple-300 text-lg crt-glow-sm">{num}</div>
+                  <div className="font-mono text-purple-600 text-xs mt-1">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Skills ────────────────────────────────────────────────────────────────
+function Skills() {
+  const skills = [
+    { label: "JavaScript", value: 70 },
+    { label: "HTML & CSS", value: 80 },
+    { label: "Python", value: 65 },
+    { label: "React", value: 60 },
+    { label: "Node.js", value: 50 },
+    { label: "SQL", value: 55 },
+  ];
+
+  const tools = ["Git", "GitHub", "VSCode", "Figma", "Linux", "Docker"];
+
+  return (
+    <section id="habilidades" className="relative py-24 px-6 pixel-grid-bg">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-12 fade-up">
+          <h2 className="font-pixel text-2xl md:text-3xl text-purple-300 section-title crt-glow-sm">
+            HABILIDADES
+          </h2>
+          <div className="w-48 h-px bg-purple-700 mt-3" />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-12">
+          <div className="fade-left">
+            <p className="font-pixel text-purple-600 text-xs mb-6">ATRIBUTOS</p>
+            {skills.map((s, i) => (
+              <SkillBar key={s.label} label={s.label} value={s.value} delay={i * 120} />
+            ))}
+          </div>
+
+          <div className="fade-right">
+            <p className="font-pixel text-purple-600 text-xs mb-6">INVENTÁRIO</p>
+            <div className="grid grid-cols-2 gap-3">
+              {tools.map((t) => (
+                <div
+                  key={t}
+                  className="flex items-center gap-3 p-3 border border-purple-800 bg-[#110020] hover:border-purple-500 hover:bg-purple-900/30 transition-all cursor-default group"
+                  style={{ boxShadow: "3px 3px 0 #3a006e" }}
+                >
+                  <div className="w-2 h-2 bg-purple-500 group-hover:bg-purple-300 transition-colors" />
+                  <span className="font-mono text-sm text-purple-300 group-hover:text-purple-100 transition-colors">
+                    {t}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* currently learning */}
+            <div className="mt-8 p-4 border border-purple-700/40 bg-purple-900/10">
+              <p className="font-pixel text-purple-500 text-xs mb-3">APRENDENDO AGORA</p>
+              <div className="flex flex-wrap gap-2">
+                {["TypeScript", "Next.js", "PostgreSQL", "APIs REST"].map((t) => (
+                  <span key={t} className="pixel-tag">{t}</span>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400" style={{ boxShadow: "0 0 6px #00ff88" }} />
+                <span className="font-mono text-xs text-green-400">Em progresso...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Projects ─────────────────────────────────────────────────────────────
+const projects = [
+  {
+    id: 1,
+    title: "PROJETO ALPHA",
+    desc: "Um sistema web desenvolvido com HTML, CSS e JavaScript para gerenciar tarefas pessoais com interface intuitiva.",
+    tags: ["HTML", "CSS", "JavaScript"],
+    status: "COMPLETO",
+    link: "#",
+  },
+  {
+    id: 2,
+    title: "PROJETO BETA",
+    desc: "Aplicação Python para automatizar processos repetitivos e facilitar o dia a dia com scripts úteis.",
+    tags: ["Python", "Automação"],
+    status: "EM DESENVOLVIMENTO",
+    link: "#",
+  },
+  {
+    id: 3,
+    title: "PROJETO GAMMA",
+    desc: "API REST desenvolvida com Node.js e Express para servir dados para aplicações front-end.",
+    tags: ["Node.js", "Express", "API"],
+    status: "EM PAUSA",
+    link: "#",
+  },
+  {
+    id: 4,
+    title: "PROJETO DELTA",
+    desc: "Site portfólio com estética pixel art construído em React com animações customizadas.",
+    tags: ["React", "CSS", "Animações"],
+    status: "COMPLETO",
+    link: "#",
+  },
+];
+
+const statusColor: Record<string, string> = {
+  "COMPLETO": "#00ff88",
+  "EM DESENVOLVIMENTO": "#ffcc00",
+  "EM PAUSA": "#ff6666",
+};
+
+function Projects() {
+  const [active, setActive] = useState<number | null>(null);
+
+  return (
+    <section id="projetos" className="relative py-24 px-6">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-12 fade-up">
+          <h2 className="font-pixel text-2xl md:text-3xl text-purple-300 section-title crt-glow-sm">
+            PROJETOS
+          </h2>
+          <div className="w-48 h-px bg-purple-700 mt-3" />
+          <p className="font-mono text-purple-600 text-sm mt-3">
+            // Clique em um projeto para ver detalhes
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {projects.map((p, i) => (
+            <div
+              key={p.id}
+              className={`fade-up cursor-pointer`}
+              style={{ transitionDelay: `${i * 80}ms` }}
+              onClick={() => setActive(active === p.id ? null : p.id)}
+            >
+              <TiltCard className={`p-5 bg-[#110020] transition-all duration-300 ${active === p.id ? "border-purple-400" : ""}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <span className="font-pixel text-purple-600" style={{ fontSize: "7px" }}>
+                      #{String(p.id).padStart(3, "0")}
+                    </span>
+                    <h3 className="font-pixel text-purple-200 text-sm mt-1 crt-glow-sm">
+                      {p.title}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="w-2 h-2"
+                      style={{
+                        background: statusColor[p.status],
+                        boxShadow: `0 0 6px ${statusColor[p.status]}`,
+                      }}
+                    />
+                    <span className="font-mono text-xs" style={{ color: statusColor[p.status], fontSize: "9px" }}>
+                      {p.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`overflow-hidden transition-all duration-400 ${active === p.id ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}
+                >
+                  <p className="font-mono text-purple-400 text-xs leading-relaxed mb-3">
+                    {p.desc}
+                  </p>
+                  <a
+                    href={p.link}
+                    className="inline-block font-pixel text-purple-400 hover:text-purple-200 transition-colors"
+                    style={{ fontSize: "8px" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    [VER PROJETO →]
+                  </a>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {p.tags.map((t) => (
+                    <span key={t} className="pixel-tag">{t}</span>
+                  ))}
+                </div>
+
+                <div className="mt-3 text-right">
+                  <span className="font-mono text-purple-700 text-xs">
+                    {active === p.id ? "[-] fechar" : "[+] expandir"}
+                  </span>
+                </div>
+              </TiltCard>
+            </div>
+          ))}
+        </div>
+
+        {/* add project hint */}
+        <div className="fade-up mt-8 border border-dashed border-purple-800 p-6 text-center">
+          <p className="font-pixel text-purple-700" style={{ fontSize: "9px" }}>
+            + NOVOS PROJETOS EM BREVE...
+          </p>
+          <div className="mt-2 flex justify-center">
+            <span className="cursor-blink font-pixel text-purple-600" style={{ fontSize: "20px" }}>█</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Contact ───────────────────────────────────────────────────────────────
+function Contact() {
+  const [sent, setSent] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSent(true);
+  };
+
+  const contacts = [
+    { label: "GitHub", value: "github.com/yuri-andrade", icon: "GH" },
+    { label: "LinkedIn", value: "linkedin.com/in/yuri-andrade", icon: "LI" },
+    { label: "Email", value: "yuri@email.com", icon: "✉" },
+  ];
+
+  return (
+    <section id="contato" className="relative py-24 px-6 pixel-grid-bg">
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-12 fade-up">
+          <h2 className="font-pixel text-2xl md:text-3xl text-purple-300 section-title crt-glow-sm">
+            CONTATO
+          </h2>
+          <div className="w-48 h-px bg-purple-700 mt-3" />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-12">
+          {/* social links */}
+          <div className="fade-left space-y-4">
+            <p className="font-pixel text-purple-600 text-xs mb-6">CANAIS DE COMUNICAÇÃO</p>
+            {contacts.map((c) => (
+              <div
+                key={c.label}
+                className="flex items-center gap-4 p-4 border border-purple-800 bg-[#110020] hover:border-purple-500 hover:bg-purple-900/20 transition-all cursor-pointer group"
+                style={{ boxShadow: "4px 4px 0 #3a006e" }}
+              >
+                <div
+                  className="w-10 h-10 flex items-center justify-center border border-purple-700 bg-purple-900/40 font-pixel text-purple-400 group-hover:border-purple-400 transition-colors shrink-0"
+                  style={{ fontSize: "9px" }}
+                >
+                  {c.icon}
+                </div>
+                <div>
+                  <p className="font-pixel text-purple-400 group-hover:text-purple-200 transition-colors" style={{ fontSize: "9px" }}>
+                    {c.label}
+                  </p>
+                  <p className="font-mono text-purple-600 text-xs mt-0.5">{c.value}</p>
+                </div>
+                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="font-pixel text-purple-500" style={{ fontSize: "9px" }}>[→]</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* form */}
+          <div className="fade-right">
+            <p className="font-pixel text-purple-600 text-xs mb-6">ENVIAR MENSAGEM</p>
+            {sent ? (
+              <div className="border-2 border-green-500/50 bg-green-900/10 p-8 text-center" style={{ boxShadow: "6px 6px 0 #003a1e" }}>
+                <p className="font-pixel text-green-400 text-sm crt-glow-sm mb-3">MENSAGEM ENVIADA!</p>
+                <p className="font-mono text-green-600 text-xs">// Retornarei em breve...</p>
+                <button
+                  onClick={() => setSent(false)}
+                  className="mt-4 neon-btn"
+                  style={{ borderColor: "#00aa55", color: "#00ff88" }}
+                >
+                  NOVA MENSAGEM
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {[
+                  { id: "name", label: "NOME", type: "text", placeholder: "Seu nome..." },
+                  { id: "email", label: "EMAIL", type: "email", placeholder: "seu@email.com" },
+                ].map((f) => (
+                  <div key={f.id}>
+                    <label className="block font-pixel text-purple-600 mb-1" style={{ fontSize: "8px" }}>
+                      {f.label}
+                    </label>
+                    <input
+                      type={f.type}
+                      placeholder={f.placeholder}
+                      required
+                      value={form[f.id as keyof typeof form]}
+                      onChange={(e) => setForm({ ...form, [f.id]: e.target.value })}
+                      className="w-full bg-[#110020] border border-purple-800 text-purple-200 font-mono text-sm px-3 py-2 focus:outline-none focus:border-purple-500 placeholder:text-purple-800 transition-colors"
+                      style={{ boxShadow: "inset 0 0 10px rgba(139,43,226,0.08)" }}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="block font-pixel text-purple-600 mb-1" style={{ fontSize: "8px" }}>
+                    MENSAGEM
+                  </label>
+                  <textarea
+                    placeholder="Sua mensagem aqui..."
+                    rows={4}
+                    required
+                    value={form.message}
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    className="w-full bg-[#110020] border border-purple-800 text-purple-200 font-mono text-sm px-3 py-2 focus:outline-none focus:border-purple-500 placeholder:text-purple-800 resize-none transition-colors"
+                    style={{ boxShadow: "inset 0 0 10px rgba(139,43,226,0.08)" }}
+                  />
+                </div>
+                <button type="submit" className="neon-btn w-full">
+                  ENVIAR MENSAGEM
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Footer ────────────────────────────────────────────────────────────────
+function Footer() {
+  return (
+    <footer className="border-t border-purple-900/40 py-8 px-6 text-center">
+      <p className="font-pixel text-purple-700" style={{ fontSize: "8px" }}>
+        © 2026 YURI ANDRADE · CODED WITH <span className="text-purple-500">♥</span> & CAFFEINE
+      </p>
+      <p className="font-mono text-purple-800 text-xs mt-2">
+        // All rights reserved
+      </p>
+    </footer>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────
+export default function App() {
+  useScrollReveal();
+
+  return (
+    <div className="relative min-h-screen bg-[#0a0010]">
+      <div className="scanlines" />
+      <div className="noise-overlay" />
+      <Stars />
+      <div className="relative z-10">
+        <Nav />
+        <Hero />
+        <About />
+        <Skills />
+        <Projects />
+        <Contact />
+        <Footer />
+      </div>
+    </div>
+  );
+}
